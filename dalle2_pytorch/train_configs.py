@@ -36,7 +36,7 @@ class TrainSplitConfig(BaseModel):
     val: float = 0.15
     test: float = 0.1
 
-    @root_validator
+    @root_validator(pre=True)
     def validate_all(cls, fields):
         actual_sum = sum([*fields.values()])
         if actual_sum != 1.:
