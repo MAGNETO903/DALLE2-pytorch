@@ -49,7 +49,6 @@ This library would not have gotten to this working state without the help of
 - <a href="https://github.com/crowsonkb">Katherine</a> for her advice
 - <a href="https://stability.ai/">Stability AI</a> for the generous sponsorship
 - <a href="https://huggingface.co">🤗 Huggingface</a> and in particular <a href="https://github.com/sgugger">Sylvain</a> for the <a href="https://github.com/huggingface/accelerate">Accelerate</a> library
-- <a href="https://github.com/arogozhnikov">Alex</a> for <a href="https://github.com/arogozhnikov/einops">einops</a>, indispensable tool for tensor manipulation
 
 ... and many others. Thank you! 🙏
 
@@ -397,7 +396,7 @@ decoder = Decoder(
 ).cuda()
 
 for unet_number in (1, 2):
-    loss = decoder(images, text = text, unet_number = unet_number) # this can optionally be decoder(images, text) if you wish to condition on the text encodings as well, though it was hinted in the paper it didn't do much
+    loss = decoder(images, unet_number = unet_number) # this can optionally be decoder(images, text) if you wish to condition on the text encodings as well, though it was hinted in the paper it didn't do much
     loss.backward()
 
 # do above for many steps
@@ -626,20 +625,6 @@ images = dalle2(
 )
 
 # save your image (in this example, of size 256x256)
-```
-
-Alternatively, you can also use <a href="https://github.com/mlfoundations/open_clip">Open Clip</a>
-
-```bash
-$ pip install open-clip-torch
-```
-
-Ex. using the <a href="https://laion.ai/blog/large-openclip/">SOTA Open Clip</a> model trained by <a href="https://github.com/rom1504">Romain</a>
-
-```python
-from dalle2_pytorch import OpenClipAdapter
-
-clip = OpenClipAdapter('ViT-H/14')
 ```
 
 Now you'll just have to worry about training the Prior and the Decoder!
@@ -876,23 +861,25 @@ unet1 = Unet(
     text_embed_dim = 512,
     cond_dim = 128,
     channels = 3,
-    dim_mults=(1, 2, 4, 8),
-    cond_on_text_encodings = True,
+    dim_mults=(1, 2, 4, 8)
 ).cuda()
 
 unet2 = Unet(
     dim = 16,
     image_embed_dim = 512,
+    text_embed_dim = 512,
     cond_dim = 128,
     channels = 3,
     dim_mults = (1, 2, 4, 8, 16),
+    cond_on_text_encodings = True
 ).cuda()
 
 decoder = Decoder(
     unet = (unet1, unet2),
     image_sizes = (128, 256),
     clip = clip,
-    timesteps = 1000
+    timesteps = 1000,
+    condition_on_text_encodings = True
 ).cuda()
 
 decoder_trainer = DecoderTrainer(
@@ -917,8 +904,8 @@ for unet_number in (1, 2):
 # after much training
 # you can sample from the exponentially moving averaged unets as so
 
-mock_image_embed = torch.randn(32, 512).cuda()
-images = decoder_trainer.sample(image_embed = mock_image_embed, text = text) # (4, 3, 256, 256)
+mock_image_embed = torch.randn(4, 512).cuda()
+images = decoder_trainer.sample(mock_image_embed, text = text) # (4, 3, 256, 256)
 ```
 
 ### Diffusion Prior Training
@@ -1068,7 +1055,7 @@ dataloader = create_image_embedding_dataloader(
 )
 for img, emb in dataloader:
     print(img.shape)  # torch.Size([32, 3, 256, 256])
-    print(emb["img"].shape)  # torch.Size([32, 512])
+    print(emb.shape)  # torch.Size([32, 512])
     # Train decoder only as shown above
 
 # Or create a dataset without a loader so you can configure it manually
@@ -1128,7 +1115,6 @@ For detailed information on training the diffusion prior, please refer to the [d
 - [x] add inpainting ability using resampler from repaint paper https://arxiv.org/abs/2201.09865
 - [x] add the final combination of upsample feature maps, used in unet squared, seems to have an effect in local experiments
 - [ ] consider elucidated dalle2 https://arxiv.org/abs/2206.00364
-- [ ] add simple outpainting, text-guided 2x size the image for starters
 - [ ] interface out the vqgan-vae so a pretrained one can be pulled off the shelf to validate latent diffusion + DALL-E2
 
 ## Citations
@@ -1254,57 +1240,6 @@ For detailed information on training the diffusion prior, please refer to the [d
     journal = {ArXiv},
     year    = {2022},
     volume  = {abs/2201.09865}
-}
-```
-
-```bibtex
-@misc{chen2022analog,
-    title   = {Analog Bits: Generating Discrete Data using Diffusion Models with Self-Conditioning},
-    author  = {Ting Chen and Ruixiang Zhang and Geoffrey Hinton},
-    year    = {2022},
-    eprint  = {2208.04202},
-    archivePrefix = {arXiv},
-    primaryClass = {cs.CV}
-}
-```
-
-```bibtex
-@article{Qiao2019WeightS,
-    title   = {Weight Standardization},
-    author  = {Siyuan Qiao and Huiyu Wang and Chenxi Liu and Wei Shen and Alan Loddon Yuille},
-    journal = {ArXiv},
-    year    = {2019},
-    volume  = {abs/1903.10520}
-}
-```
-
-```bibtex
-@inproceedings{rogozhnikov2022einops,
-    title   = {Einops: Clear and Reliable Tensor Manipulations with Einstein-like Notation},
-    author  = {Alex Rogozhnikov},
-    booktitle = {International Conference on Learning Representations},
-    year    = {2022},
-    url     = {https://openreview.net/forum?id=oapKSVM2bcj}
-}
-```
-
-```bibtex
-@article{Sunkara2022NoMS,
-    title   = {No More Strided Convolutions or Pooling: A New CNN Building Block for Low-Resolution Images and Small Objects},
-    author  = {Raja Sunkara and Tie Luo},
-    journal = {ArXiv},
-    year    = {2022},
-    volume  = {abs/2208.03641}
-}
-```
-
-```bibtex
-@article{Salimans2022ProgressiveDF,
-    title   = {Progressive Distillation for Fast Sampling of Diffusion Models},
-    author  = {Tim Salimans and Jonathan Ho},
-    journal = {ArXiv},
-    year    = {2022},
-    volume  = {abs/2202.00512}
 }
 ```
 
