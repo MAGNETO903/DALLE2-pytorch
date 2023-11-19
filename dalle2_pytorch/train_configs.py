@@ -341,7 +341,7 @@ class TrainDecoderConfig(BaseModel):
             config = json.load(f)
         return cls(**config)
     
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def check_has_embeddings(cls, values):
         # Makes sure that enough information is provided to get the embeddings specified for training
         data_config, decoder_config = values.get('data'), values.get('decoder')
