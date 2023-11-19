@@ -339,7 +339,7 @@ class TrainDecoderConfig(BaseModel):
     def from_json_path(cls, json_path):
         with open(json_path) as f:
             config = json.load(f)
-        return **config
+        return cls(**config)
     
     @root_validator(skip_on_failure=True)
     def check_has_embeddings(cls, values):
