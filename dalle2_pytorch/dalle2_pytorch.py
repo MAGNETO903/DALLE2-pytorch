@@ -2794,7 +2794,7 @@ class Decoder(nn.Module):
 
                 lowres_noise_level = None
                 
-                if (unet_number >= start_at_unet_number and start_at_unet_number > 1):
+                if unet_number >= start_at_unet_number:
                     lowres_cond_img = self.lowres_cond_img
                 else:
                     lowres_cond_img = None
