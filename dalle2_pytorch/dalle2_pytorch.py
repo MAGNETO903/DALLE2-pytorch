@@ -2536,7 +2536,7 @@ class Decoder(nn.Module):
                     # https://arxiv.org/abs/2201.09865
                     noised_inpaint_image = noise_scheduler.q_sample(inpaint_image, t = times)
                     # DENOSING ONLY AFTER 900 ITERATIONS
-                    if (time < 100 && lowres_cond_img != None):
+                    if (time < 100 and lowres_cond_img != None):
                         img = (img * ~inpaint_mask) + (noised_inpaint_image * inpaint_mask)
 
                 img = self.p_sample(
@@ -2684,9 +2684,8 @@ class Decoder(nn.Module):
         # get x_t
 
         x_noisy = noise_scheduler.q_sample(x_start = x_start, t = times, noise = noise)
-        print("p_losses self.lowres_cond_img=",self.lowres_cond_img)
-        lowres_cond_img = self.lowres_cond_img
-        print("p_losses lowres_cond_img=", lowres_cond_img)
+        
+        
         model_output = unet(
             x_noisy,
             times,
