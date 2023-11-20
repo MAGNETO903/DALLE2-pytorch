@@ -1880,7 +1880,6 @@ class Unet(nn.Module):
         
         # add low resolution conditioning, if present
         # try to use lowres_cond_img
-        print("lowres_cond_img != None", lowres_cond_img == None)
         assert not (self.lowres_cond and not exists(lowres_cond_img)), 'low resolution conditioning image must be present'
 
         if exists(lowres_cond_img):
@@ -2794,7 +2793,11 @@ class Decoder(nn.Module):
                 # prepare low resolution conditioning for upsamplers
 
                 lowres_noise_level = None
-                lowres_cond_img = self.lowres_cond_img
+                if (unet_number >= start_at_unet_number):
+                    lowres_cond_img = self.lowres_cond_img
+                else:
+                    lowres_cond_img = None
+                    
                 shape = (batch_size, channel, image_size, image_size)
 
                 if unet.lowres_cond:
