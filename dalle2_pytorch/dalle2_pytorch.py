@@ -1875,9 +1875,17 @@ class Unet(nn.Module):
         blur_kernel_size = None
     ):
         batch_size, device = x.shape[0], x.device
-
+        
         # add low resolution conditioning, if present
-
+        # try to use lowres_cond_img
+        try:
+            MY_LOWRES_COND_IMG
+        except NameError:
+            print("no lowres_cond_img")
+        else:
+            print("using lowres_cond_img")
+            lowres_cond_img = MY_LOWRES_COND_IMG
+        
         assert not (self.lowres_cond and not exists(lowres_cond_img)), 'low resolution conditioning image must be present'
 
         if exists(lowres_cond_img):
