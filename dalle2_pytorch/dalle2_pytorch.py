@@ -2191,12 +2191,11 @@ class Decoder(nn.Module):
         ddim_sampling_eta = 1.                      # can be set to 0. for deterministic sampling afaict
     ):
         super().__init__()
-        print(lowres_cond_img)
-        print(self.lowres_cond_img)
+        
         # clip
-
         self.clip = None
         self.lowres_cond_img = lowres_cond_img
+        print(self.lowres_cond_img)
         if exists(clip):
             assert not unconditional, 'clip must not be given if doing unconditional image training'
             assert channels == clip.image_channels, f'channels of image ({channels}) should be equal to the channels that CLIP accepts ({clip.image_channels})'
