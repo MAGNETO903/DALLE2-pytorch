@@ -2536,7 +2536,7 @@ class Decoder(nn.Module):
                     # https://arxiv.org/abs/2201.09865
                     noised_inpaint_image = noise_scheduler.q_sample(inpaint_image, t = times)
                     # DENOSING ONLY AFTER 900 ITERATIONS
-                    if (time < 100):
+                    if (time < 100 && lowres_cond_img != None):
                         img = (img * ~inpaint_mask) + (noised_inpaint_image * inpaint_mask)
 
                 img = self.p_sample(
