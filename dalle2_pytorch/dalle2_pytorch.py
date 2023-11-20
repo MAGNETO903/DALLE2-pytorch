@@ -2196,6 +2196,7 @@ class Decoder(nn.Module):
         # clip
 
         self.clip = None
+        self.lowres_cond_img = lowres_cond_img
         if exists(clip):
             assert not unconditional, 'clip must not be given if doing unconditional image training'
             assert channels == clip.image_channels, f'channels of image ({channels}) should be equal to the channels that CLIP accepts ({clip.image_channels})'
@@ -2442,9 +2443,9 @@ class Decoder(nn.Module):
         x = x.clamp(-s, s) / s
         return x
 
-    def p_mean_variance(self, unet, x, t, image_embed, noise_scheduler, text_encodings = None, lowres_cond_img = lowres_cond_img, clip_denoised = True, predict_x_start = False, learned_variance = False, cond_scale = 1., model_output = None, lowres_noise_level = None):
+    def p_mean_variance(self, unet, x, t, image_embed, noise_scheduler, text_encodings = None, lowres_cond_img = None, clip_denoised = True, predict_x_start = False, learned_variance = False, cond_scale = 1., model_output = None, lowres_noise_level = None):
         assert not (cond_scale != 1. and not self.can_classifier_guidance), 'the decoder was not trained with conditional dropout, and thus one cannot use classifier free guidance (cond_scale anything other than 1)'
-
+        lowres_cond_img = self.lowres_cond_img
         pred = default(model_output, lambda: unet.forward_with_cond_scale(x, t, image_embed = image_embed, text_encodings = text_encodings, cond_scale = cond_scale, lowres_cond_img = lowres_cond_img, lowres_noise_level = lowres_noise_level))
 
         if learned_variance:
@@ -2477,8 +2478,9 @@ class Decoder(nn.Module):
         return model_mean, posterior_variance, posterior_log_variance
 
     @torch.no_grad()
-    def p_sample(self, unet, x, t, image_embed, noise_scheduler, text_encodings = None, cond_scale = 1., lowres_cond_img = lowres_cond_img, predict_x_start = False, learned_variance = False, clip_denoised = True, lowres_noise_level = None):
+    def p_sample(self, unet, x, t, image_embed, noise_scheduler, text_encodings = None, cond_scale = 1., lowres_cond_img = None, predict_x_start = False, learned_variance = False, clip_denoised = True, lowres_noise_level = None):
         b, *_, device = *x.shape, x.device
+        lowres_cond_img = self.lowres_cond_img
         model_mean, _, model_log_variance = self.p_mean_variance(unet, x = x, t = t, image_embed = image_embed, text_encodings = text_encodings, cond_scale = cond_scale, lowres_cond_img = lowres_cond_img, clip_denoised = clip_denoised, predict_x_start = predict_x_start, noise_scheduler = noise_scheduler, learned_variance = learned_variance, lowres_noise_level = lowres_noise_level)
         noise = torch.randn_like(x)
         # no noise when t == 0
@@ -2495,7 +2497,7 @@ class Decoder(nn.Module):
         predict_x_start = False,
         learned_variance = False,
         clip_denoised = True,
-        lowres_cond_img = lowres_cond_img,
+        lowres_cond_img = None,
         text_encodings = None,
         cond_scale = 1,
         is_latent_diffusion = False,
@@ -2505,7 +2507,7 @@ class Decoder(nn.Module):
         inpaint_resample_times = 5
     ):
         device = self.device
-
+        lowres_cond_img = self.lowres_cond_img;
         b = shape[0]
         img = torch.randn(shape, device = device)
 
@@ -2573,7 +2575,7 @@ class Decoder(nn.Module):
         predict_x_start = False,
         learned_variance = False,
         clip_denoised = True,
-        lowres_cond_img = lowres_cond_img,
+        lowres_cond_img = None,
         text_encodings = None,
         cond_scale = 1,
         is_latent_diffusion = False,
@@ -2583,7 +2585,7 @@ class Decoder(nn.Module):
         inpaint_resample_times = 5
     ):
         batch, device, total_timesteps, alphas, eta = shape[0], self.device, noise_scheduler.num_timesteps, noise_scheduler.alphas_cumprod_prev, self.ddim_sampling_eta
-
+        lowres_cond_img = self.lowres_cond_img;
         times = torch.linspace(0., total_timesteps, steps = timesteps + 2)[:-1]
 
         times = list(reversed(times.int().tolist()))
@@ -2668,9 +2670,9 @@ class Decoder(nn.Module):
 
         return self.p_sample_loop_ddim(*args, noise_scheduler = noise_scheduler, timesteps = timesteps, **kwargs)
 
-    def p_losses(self, unet, x_start, times, *, image_embed, noise_scheduler, lowres_cond_img = lowres_cond_img, text_encodings = None, predict_x_start = False, noise = None, learned_variance = False, clip_denoised = False, is_latent_diffusion = False, lowres_noise_level = None):
+    def p_losses(self, unet, x_start, times, *, image_embed, noise_scheduler, lowres_cond_img = None, text_encodings = None, predict_x_start = False, noise = None, learned_variance = False, clip_denoised = False, is_latent_diffusion = False, lowres_noise_level = None):
         noise = default(noise, lambda: torch.randn_like(x_start))
-
+        lowres_cond_img = self.lowres_cond_img;
         # normalize to [-1, 1]
 
         if not is_latent_diffusion:
@@ -2793,7 +2795,7 @@ class Decoder(nn.Module):
                 # prepare low resolution conditioning for upsamplers
 
                 lowres_noise_level = None
-                lowres_cond_img = lowres_cond_img
+                lowres_cond_img = self.lowres_cond_img
                 shape = (batch_size, channel, image_size, image_size)
 
                 if unet.lowres_cond:
