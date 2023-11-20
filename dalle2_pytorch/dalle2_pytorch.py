@@ -2680,7 +2680,7 @@ class Decoder(nn.Module):
         # get x_t
 
         x_noisy = noise_scheduler.q_sample(x_start = x_start, t = times, noise = noise)
-
+        print("p_losses lowres_cond_img=",lowres_cond_img)
         model_output = unet(
             x_noisy,
             times,
