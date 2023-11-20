@@ -2191,7 +2191,8 @@ class Decoder(nn.Module):
         ddim_sampling_eta = 1.                      # can be set to 0. for deterministic sampling afaict
     ):
         super().__init__()
-
+        print(lowres_cond_img)
+        print(self.lowres_cond_img)
         # clip
 
         self.clip = None
