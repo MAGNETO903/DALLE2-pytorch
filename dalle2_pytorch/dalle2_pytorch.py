@@ -2538,7 +2538,7 @@ class Decoder(nn.Module):
                     # DENOSING ONLY AFTER 900 ITERATIONS
                     img = (img * ~inpaint_mask)
                     if (time < 100 and lowres_cond_img != None):
-                        print("active deeeenosing)
+                        print("active deeeenosing")
                         img = img + (noised_inpaint_image * inpaint_mask)
 
                 img = self.p_sample(
