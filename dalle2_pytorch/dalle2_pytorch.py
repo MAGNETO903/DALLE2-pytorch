@@ -2478,7 +2478,7 @@ class Decoder(nn.Module):
     @torch.no_grad()
     def p_sample(self, unet, x, t, image_embed, noise_scheduler, text_encodings = None, cond_scale = 1., lowres_cond_img = None, predict_x_start = False, learned_variance = False, clip_denoised = True, lowres_noise_level = None):
         b, *_, device = *x.shape, x.device
-        
+        print("p_sample -> lowres_cond_img == None", lowres_cond_img == None)
         model_mean, _, model_log_variance = self.p_mean_variance(unet, x = x, t = t, image_embed = image_embed, text_encodings = text_encodings, cond_scale = cond_scale, lowres_cond_img = lowres_cond_img, clip_denoised = clip_denoised, predict_x_start = predict_x_start, noise_scheduler = noise_scheduler, learned_variance = learned_variance, lowres_noise_level = lowres_noise_level)
         noise = torch.randn_like(x)
         # no noise when t == 0
@@ -2525,7 +2525,7 @@ class Decoder(nn.Module):
         
         for time in tqdm(reversed(range(0, noise_scheduler.num_timesteps)), desc = 'sampling loop time step', total = noise_scheduler.num_timesteps):
             is_last_timestep = time == 0
-            print("time=", time)
+            
             for r in reversed(range(0, resample_times)):
                 is_last_resample_step = r == 0
 
@@ -2536,8 +2536,10 @@ class Decoder(nn.Module):
                     # https://arxiv.org/abs/2201.09865
                     noised_inpaint_image = noise_scheduler.q_sample(inpaint_image, t = times)
                     # DENOSING ONLY AFTER 900 ITERATIONS
+                    img = (img * ~inpaint_mask)
                     if (time < 100 and lowres_cond_img != None):
-                        img = (img * ~inpaint_mask) + (noised_inpaint_image * inpaint_mask)
+                        print("active deeeenosing)
+                        img = img + (noised_inpaint_image * inpaint_mask)
 
                 img = self.p_sample(
                     unet,
