@@ -1623,7 +1623,7 @@ class Unet(nn.Module):
         # for eventual cascading diffusion
 
         self.lowres_cond = lowres_cond
-
+        print("Unet lowres_cond=", lowres_cond)
         # determine dimensions
 
         self.channels = channels
@@ -1881,7 +1881,7 @@ class Unet(nn.Module):
         # add low resolution conditioning, if present
         # try to use lowres_cond_img
         assert not (self.lowres_cond and not exists(lowres_cond_img)), 'low resolution conditioning image must be present'
-
+        print
         if exists(lowres_cond_img):
             x = torch.cat((x, lowres_cond_img), dim = 1)
 
