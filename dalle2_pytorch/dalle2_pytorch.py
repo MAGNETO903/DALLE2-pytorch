@@ -2478,7 +2478,7 @@ class Decoder(nn.Module):
     @torch.no_grad()
     def p_sample(self, unet, x, t, image_embed, noise_scheduler, text_encodings = None, cond_scale = 1., lowres_cond_img = None, predict_x_start = False, learned_variance = False, clip_denoised = True, lowres_noise_level = None):
         b, *_, device = *x.shape, x.device
-        lowres_cond_img = self.lowres_cond_img
+        
         model_mean, _, model_log_variance = self.p_mean_variance(unet, x = x, t = t, image_embed = image_embed, text_encodings = text_encodings, cond_scale = cond_scale, lowres_cond_img = lowres_cond_img, clip_denoised = clip_denoised, predict_x_start = predict_x_start, noise_scheduler = noise_scheduler, learned_variance = learned_variance, lowres_noise_level = lowres_noise_level)
         noise = torch.randn_like(x)
         # no noise when t == 0
@@ -2505,7 +2505,7 @@ class Decoder(nn.Module):
         inpaint_resample_times = 5
     ):
         device = self.device
-        lowres_cond_img = self.lowres_cond_img;
+        
         b = shape[0]
         img = torch.randn(shape, device = device)
 
@@ -2583,7 +2583,7 @@ class Decoder(nn.Module):
         inpaint_resample_times = 5
     ):
         batch, device, total_timesteps, alphas, eta = shape[0], self.device, noise_scheduler.num_timesteps, noise_scheduler.alphas_cumprod_prev, self.ddim_sampling_eta
-        lowres_cond_img = self.lowres_cond_img;
+        
         times = torch.linspace(0., total_timesteps, steps = timesteps + 2)[:-1]
 
         times = list(reversed(times.int().tolist()))
@@ -2670,7 +2670,7 @@ class Decoder(nn.Module):
 
     def p_losses(self, unet, x_start, times, *, image_embed, noise_scheduler, lowres_cond_img = None, text_encodings = None, predict_x_start = False, noise = None, learned_variance = False, clip_denoised = False, is_latent_diffusion = False, lowres_noise_level = None):
         noise = default(noise, lambda: torch.randn_like(x_start))
-        lowres_cond_img = self.lowres_cond_img;
+        
         # normalize to [-1, 1]
 
         if not is_latent_diffusion:
