@@ -2887,7 +2887,7 @@ class Decoder(nn.Module):
 
         lowres_cond_img, lowres_noise_level = lowres_conditioner(image, target_image_size = target_image_size, downsample_image_size = self.image_sizes[unet_index - 1]) if exists(lowres_conditioner) else (None, None)
         image = resize_image_to(image, target_image_size, nearest = True)
-
+        print("lowres_cond_img=", lowres_cond_img)
         if exists(random_crop_size):
             aug = K.RandomCrop((random_crop_size, random_crop_size), p = 1.)
 
