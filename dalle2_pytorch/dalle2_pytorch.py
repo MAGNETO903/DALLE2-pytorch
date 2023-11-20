@@ -2521,7 +2521,9 @@ class Decoder(nn.Module):
 
         if not is_latent_diffusion:
             lowres_cond_img = maybe(self.normalize_img)(lowres_cond_img)
-
+            
+        lowres_cond_img = self.lowres_cond_img
+        
         for time in tqdm(reversed(range(0, noise_scheduler.num_timesteps)), desc = 'sampling loop time step', total = noise_scheduler.num_timesteps):
             is_last_timestep = time == 0
             print("time=", time)
@@ -2534,7 +2536,9 @@ class Decoder(nn.Module):
                     # following the repaint paper
                     # https://arxiv.org/abs/2201.09865
                     noised_inpaint_image = noise_scheduler.q_sample(inpaint_image, t = times)
-                    img = (img * ~inpaint_mask) + (noised_inpaint_image * inpaint_mask)
+                    # DENOSING ONLY AFTER 900 ITERATIONS
+                    if (time < 100):
+                        img = (img * ~inpaint_mask) + (noised_inpaint_image * inpaint_mask)
 
                 img = self.p_sample(
                     unet,
@@ -2683,7 +2687,9 @@ class Decoder(nn.Module):
         # get x_t
 
         x_noisy = noise_scheduler.q_sample(x_start = x_start, t = times, noise = noise)
-        print("p_losses lowres_cond_img=",lowres_cond_img)
+        print("p_losses self.lowres_cond_img=",self.lowres_cond_img)
+        lowres_cond_img = self.lowres_cond_img
+        print("p_losses lowres_cond_img=", lowres_cond_img)
         model_output = unet(
             x_noisy,
             times,
