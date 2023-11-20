@@ -2553,9 +2553,7 @@ class Decoder(nn.Module):
                     learned_variance = learned_variance,
                     clip_denoised = clip_denoised
                 )
-
-                print("i) lowres_cond_img=", lowres_cond_img)
-
+                
                 if is_inpaint and not (is_last_timestep or is_last_resample_step):
                     # in repaint, you renoise and resample up to 10 times every step
                     img = noise_scheduler.q_sample_from_to(img, times - 1, times)
