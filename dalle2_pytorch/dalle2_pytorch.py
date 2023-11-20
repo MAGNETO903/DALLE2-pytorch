@@ -1608,12 +1608,14 @@ class Unet(nn.Module):
         scale_skip_connection = False,
         pixel_shuffle_upsample = True,
         final_conv_kernel_size = 1,
-        combine_upsample_fmaps = False, # whether to combine the outputs of all upsample blocks, as in unet squared paper
+        combine_upsample_fmaps = False, 
+        
+        # whether to combine the outputs of all upsample blocks, as in unet squared paper
         **kwargs
     ):
         super().__init__()
         # save locals to take care of some hyperparameters for cascading DDPM
-
+        
         self._locals = locals()
         del self._locals['self']
         del self._locals['__class__']
@@ -1878,14 +1880,7 @@ class Unet(nn.Module):
         
         # add low resolution conditioning, if present
         # try to use lowres_cond_img
-        try:
-            MY_LOWRES_COND_IMG
-        except NameError:
-            print("no lowres_cond_img")
-        else:
-            print("using lowres_cond_img")
-            lowres_cond_img = MY_LOWRES_COND_IMG
-        
+        print("lowres_cond_img != None", lowres_cond_img == None)
         assert not (self.lowres_cond and not exists(lowres_cond_img)), 'low resolution conditioning image must be present'
 
         if exists(lowres_cond_img):
@@ -2170,6 +2165,7 @@ class Decoder(nn.Module):
         loss_type = 'l2',
         beta_schedule = None,
         predict_x_start = False,
+        lowres_cond_img = None,
         predict_x_start_for_latent_diffusion = False,
         image_sizes = None,                         # for cascading ddpm, image size at each stage
         random_crop_sizes = None,                   # whether to random crop the image at that stage in the cascade (super resoluting convolutions at the end may be able to generalize on smaller crops)
@@ -2445,7 +2441,7 @@ class Decoder(nn.Module):
         x = x.clamp(-s, s) / s
         return x
 
-    def p_mean_variance(self, unet, x, t, image_embed, noise_scheduler, text_encodings = None, lowres_cond_img = None, clip_denoised = True, predict_x_start = False, learned_variance = False, cond_scale = 1., model_output = None, lowres_noise_level = None):
+    def p_mean_variance(self, unet, x, t, image_embed, noise_scheduler, text_encodings = None, lowres_cond_img = lowres_cond_img, clip_denoised = True, predict_x_start = False, learned_variance = False, cond_scale = 1., model_output = None, lowres_noise_level = None):
         assert not (cond_scale != 1. and not self.can_classifier_guidance), 'the decoder was not trained with conditional dropout, and thus one cannot use classifier free guidance (cond_scale anything other than 1)'
 
         pred = default(model_output, lambda: unet.forward_with_cond_scale(x, t, image_embed = image_embed, text_encodings = text_encodings, cond_scale = cond_scale, lowres_cond_img = lowres_cond_img, lowres_noise_level = lowres_noise_level))
@@ -2480,7 +2476,7 @@ class Decoder(nn.Module):
         return model_mean, posterior_variance, posterior_log_variance
 
     @torch.no_grad()
-    def p_sample(self, unet, x, t, image_embed, noise_scheduler, text_encodings = None, cond_scale = 1., lowres_cond_img = None, predict_x_start = False, learned_variance = False, clip_denoised = True, lowres_noise_level = None):
+    def p_sample(self, unet, x, t, image_embed, noise_scheduler, text_encodings = None, cond_scale = 1., lowres_cond_img = lowres_cond_img, predict_x_start = False, learned_variance = False, clip_denoised = True, lowres_noise_level = None):
         b, *_, device = *x.shape, x.device
         model_mean, _, model_log_variance = self.p_mean_variance(unet, x = x, t = t, image_embed = image_embed, text_encodings = text_encodings, cond_scale = cond_scale, lowres_cond_img = lowres_cond_img, clip_denoised = clip_denoised, predict_x_start = predict_x_start, noise_scheduler = noise_scheduler, learned_variance = learned_variance, lowres_noise_level = lowres_noise_level)
         noise = torch.randn_like(x)
@@ -2498,7 +2494,7 @@ class Decoder(nn.Module):
         predict_x_start = False,
         learned_variance = False,
         clip_denoised = True,
-        lowres_cond_img = None,
+        lowres_cond_img = lowres_cond_img,
         text_encodings = None,
         cond_scale = 1,
         is_latent_diffusion = False,
@@ -2576,7 +2572,7 @@ class Decoder(nn.Module):
         predict_x_start = False,
         learned_variance = False,
         clip_denoised = True,
-        lowres_cond_img = None,
+        lowres_cond_img = lowres_cond_img,
         text_encodings = None,
         cond_scale = 1,
         is_latent_diffusion = False,
@@ -2671,7 +2667,7 @@ class Decoder(nn.Module):
 
         return self.p_sample_loop_ddim(*args, noise_scheduler = noise_scheduler, timesteps = timesteps, **kwargs)
 
-    def p_losses(self, unet, x_start, times, *, image_embed, noise_scheduler, lowres_cond_img = None, text_encodings = None, predict_x_start = False, noise = None, learned_variance = False, clip_denoised = False, is_latent_diffusion = False, lowres_noise_level = None):
+    def p_losses(self, unet, x_start, times, *, image_embed, noise_scheduler, lowres_cond_img = lowres_cond_img, text_encodings = None, predict_x_start = False, noise = None, learned_variance = False, clip_denoised = False, is_latent_diffusion = False, lowres_noise_level = None):
         noise = default(noise, lambda: torch.randn_like(x_start))
 
         # normalize to [-1, 1]
@@ -2795,7 +2791,8 @@ class Decoder(nn.Module):
             with context:
                 # prepare low resolution conditioning for upsamplers
 
-                lowres_cond_img = lowres_noise_level = None
+                lowres_noise_level = None
+                lowres_cond_img = lowres_cond_img
                 shape = (batch_size, channel, image_size, image_size)
 
                 if unet.lowres_cond:
