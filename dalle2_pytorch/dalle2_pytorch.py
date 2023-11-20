@@ -2508,7 +2508,7 @@ class Decoder(nn.Module):
         
         b = shape[0]
         img = torch.randn(shape, device = device)
-
+        print("p_sample_loop_ddpm")
         is_inpaint = exists(inpaint_image)
         resample_times = inpaint_resample_times if is_inpaint else 1
 
@@ -2524,7 +2524,7 @@ class Decoder(nn.Module):
 
         for time in tqdm(reversed(range(0, noise_scheduler.num_timesteps)), desc = 'sampling loop time step', total = noise_scheduler.num_timesteps):
             is_last_timestep = time == 0
-
+            print("time=", time)
             for r in reversed(range(0, resample_times)):
                 is_last_resample_step = r == 0
 
@@ -2550,6 +2550,8 @@ class Decoder(nn.Module):
                     learned_variance = learned_variance,
                     clip_denoised = clip_denoised
                 )
+
+                print("i) lowres_cond_img=", lowres_cond_img)
 
                 if is_inpaint and not (is_last_timestep or is_last_resample_step):
                     # in repaint, you renoise and resample up to 10 times every step
@@ -2657,6 +2659,7 @@ class Decoder(nn.Module):
 
     @torch.no_grad()
     def p_sample_loop(self, *args, noise_scheduler, timesteps = None, **kwargs):
+        print("denoising loop")
         num_timesteps = noise_scheduler.num_timesteps
 
         timesteps = default(timesteps, num_timesteps)
