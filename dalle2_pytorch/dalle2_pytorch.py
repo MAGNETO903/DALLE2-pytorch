@@ -2793,12 +2793,13 @@ class Decoder(nn.Module):
                 # prepare low resolution conditioning for upsamplers
 
                 lowres_noise_level = None
-                print(unet_number, start_at_unet_number)
-                if (unet_number > start_at_unet_number):
+                
+                if (unet_number > start_at_unet_number and start_at_unet_number > 1):
                     lowres_cond_img = self.lowres_cond_img
                 else:
                     lowres_cond_img = None
                     
+                print(unet_number, start_at_unet_number, lowres_cond_img)    
                 shape = (batch_size, channel, image_size, image_size)
 
                 if unet.lowres_cond:
