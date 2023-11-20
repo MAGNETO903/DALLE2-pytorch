@@ -248,9 +248,10 @@ class DecoderConfig(BaseModel):
     image_cond_drop_prob: float = 0.1
     text_cond_drop_prob: float = 0.5
 
-    def create(self):
+    def create(self, lowres_cond_img = None):
         decoder_kwargs = self.dict()
-
+        decoder_kwargs['lowres_cond_img'] = lowres_cond_img;
+        
         unet_configs = decoder_kwargs.pop('unets')
         unets = [Unet(**config) for config in unet_configs]
 
