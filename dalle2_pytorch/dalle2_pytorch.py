@@ -2454,7 +2454,7 @@ class Decoder(nn.Module):
             x_recon = pred
         else:
             x_recon = noise_scheduler.predict_start_from_noise(x, t = t, noise = pred)
-        print("p_mean_variance", predict_x_start, pred) 
+        # print("p_mean_variance", predict_x_start, pred) 
         if clip_denoised:
             x_recon = self.dynamic_threshold(x_recon)
 
