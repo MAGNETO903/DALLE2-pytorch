@@ -1072,7 +1072,8 @@ class DiffusionPrior(nn.Module):
         b, *_, device = *x.shape, x.device
         model_mean, _, model_log_variance = self.p_mean_variance(x = x, t = t, text_cond = text_cond, clip_denoised = clip_denoised, cond_scale = cond_scale)
         noise = torch.randn_like(x)
-        # no noise when t == 0
+        # no noise when t = 0
+        
         nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
         return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise
 
@@ -2445,7 +2446,7 @@ class Decoder(nn.Module):
         assert not (cond_scale != 1. and not self.can_classifier_guidance), 'the decoder was not trained with conditional dropout, and thus one cannot use classifier free guidance (cond_scale anything other than 1)'
         # print("p_mean_variance", lowres_cond_img) 
         pred = default(model_output, lambda: unet.forward_with_cond_scale(x, t, image_embed = image_embed, text_encodings = text_encodings, cond_scale = cond_scale, lowres_cond_img = lowres_cond_img, lowres_noise_level = lowres_noise_level))
-
+        
         if learned_variance:
             pred, var_interp_frac_unnormalized = pred.chunk(2, dim = 1)
 
@@ -2453,7 +2454,7 @@ class Decoder(nn.Module):
             x_recon = pred
         else:
             x_recon = noise_scheduler.predict_start_from_noise(x, t = t, noise = pred)
-
+        print("p_mean_variance", predict_x_start, pred) 
         if clip_denoised:
             x_recon = self.dynamic_threshold(x_recon)
 
@@ -2481,8 +2482,9 @@ class Decoder(nn.Module):
         # print("p_sample: Using lowres_cond_img:", lowres_cond_img != None)
         model_mean, _, model_log_variance = self.p_mean_variance(unet, x = x, t = t, image_embed = image_embed, text_encodings = text_encodings, cond_scale = cond_scale, lowres_cond_img = lowres_cond_img, clip_denoised = clip_denoised, predict_x_start = predict_x_start, noise_scheduler = noise_scheduler, learned_variance = learned_variance, lowres_noise_level = lowres_noise_level)
         noise = torch.randn_like(x)
-        # no noise when t < 100
-        nonzero_mask = (1 - (t < 100).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
+        # no noise when t > 100
+        print("p_sample: no noise when t > 100")
+        nonzero_mask = (1 - (t > 100).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
         return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise
 
     @torch.no_grad()
