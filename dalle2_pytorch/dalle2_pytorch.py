@@ -2484,7 +2484,11 @@ class Decoder(nn.Module):
         noise = torch.randn_like(x)
         # no noise when t > 100
         print("p_sample: no noise when t > 100")
-        nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
+        if (lowres_cond_img == None):
+            nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
+        else:
+            nonzero_mask = (1 - (t > 100).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
+        
         return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise
 
     @torch.no_grad()
