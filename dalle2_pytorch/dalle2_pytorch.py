@@ -2535,9 +2535,9 @@ class Decoder(nn.Module):
                     # following the repaint paper
                     # https://arxiv.org/abs/2201.09865
                     noised_inpaint_image = noise_scheduler.q_sample(inpaint_image, t = times)
-                    # DENOSING ONLY AFTER 900 ITERATIONS
+                    # DENOSING ONLY AFTER 500 ITERATIONS
                     img = (img * ~inpaint_mask)
-                    if ((time < 100 and lowres_cond_img != None) or (lowres_cond_img == None)):
+                    if ((time > 500 and lowres_cond_img != None) or (lowres_cond_img == None)):
                         print("time=", time, "active deeeenosing")
                         img = img + (noised_inpaint_image * inpaint_mask)
 
@@ -2558,7 +2558,7 @@ class Decoder(nn.Module):
                 
                 if is_inpaint and not (is_last_timestep or is_last_resample_step):
                     # in repaint, you renoise and resample up to 10 times every step
-                    if ((time < 100 and lowres_cond_img != None) or (lowres_cond_img == None)):
+                    if ((time > 500 and lowres_cond_img != None) or (lowres_cond_img == None)):
                         print("time=", time, "active deeeenosing2")
                         img = noise_scheduler.q_sample_from_to(img, times - 1, times)
 
