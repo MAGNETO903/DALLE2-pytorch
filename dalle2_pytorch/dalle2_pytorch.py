@@ -2816,7 +2816,8 @@ class Decoder(nn.Module):
                         lowres_cond_img, _ = lowres_cond.noise_image(lowres_cond_img, lowres_noise_level)
 
                 # latent diffusion
-
+                if unet_number > start_at_unet_number:
+                    lowres_cond_img = self.lowres_cond_img
                 is_latent_diffusion = isinstance(vae, VQGanVAE)
                 image_size = vae.get_encoded_fmap_size(image_size)
                 shape = (batch_size, vae.encoded_dim, image_size, image_size)
@@ -2824,8 +2825,7 @@ class Decoder(nn.Module):
                 lowres_cond_img = maybe(vae.encode)(lowres_cond_img)
 
                 # denoising loop for image
-                if unet_number > start_at_unet_number:
-                    lowres_cond_img = self.lowres_cond_img
+                
                
                 img = self.p_sample_loop(
                     unet,
