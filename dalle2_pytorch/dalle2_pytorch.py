@@ -2805,7 +2805,7 @@ class Decoder(nn.Module):
                 
                 
                     
-                print(unet_number, start_at_unet_number, lowres_cond_img)    
+                # print(unet_number, start_at_unet_number, lowres_cond_img)    
                 shape = (batch_size, channel, image_size, image_size)
 
                 if unet.lowres_cond:
