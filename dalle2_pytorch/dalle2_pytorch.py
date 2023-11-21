@@ -2481,8 +2481,8 @@ class Decoder(nn.Module):
         # print("p_sample: Using lowres_cond_img:", lowres_cond_img != None)
         model_mean, _, model_log_variance = self.p_mean_variance(unet, x = x, t = t, image_embed = image_embed, text_encodings = text_encodings, cond_scale = cond_scale, lowres_cond_img = lowres_cond_img, clip_denoised = clip_denoised, predict_x_start = predict_x_start, noise_scheduler = noise_scheduler, learned_variance = learned_variance, lowres_noise_level = lowres_noise_level)
         noise = torch.randn_like(x)
-        # no noise when t == 0
-        nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
+        # no noise when t < 100
+        nonzero_mask = (1 - (t < 100).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
         return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise
 
     @torch.no_grad()
@@ -2537,9 +2537,9 @@ class Decoder(nn.Module):
                     noised_inpaint_image = noise_scheduler.q_sample(inpaint_image, t = times)
                     # DENOSING ONLY AFTER 500 ITERATIONS
                     img = (img * ~inpaint_mask)
-                    if ((time > 500 and lowres_cond_img != None) or (lowres_cond_img == None)):
-                        print("time=", time, "active deeeenosing")
-                        img = img + (noised_inpaint_image * inpaint_mask)
+                    #if ((time > 500 and lowres_cond_img != None) or (lowres_cond_img == None)):
+                    #    print("time=", time, "active deeeenosing")
+                    img = img + (noised_inpaint_image * inpaint_mask)
 
                 img = self.p_sample(
                     unet,
@@ -2558,9 +2558,9 @@ class Decoder(nn.Module):
                 
                 if is_inpaint and not (is_last_timestep or is_last_resample_step):
                     # in repaint, you renoise and resample up to 10 times every step
-                    if ((time > 500 and lowres_cond_img != None) or (lowres_cond_img == None)):
-                        print("time=", time, "active deeeenosing2")
-                        img = noise_scheduler.q_sample_from_to(img, times - 1, times)
+                    #if ((time > 500 and lowres_cond_img != None) or (lowres_cond_img == None)):
+                        #print("time=", time, "active deeeenosing2")
+                    img = noise_scheduler.q_sample_from_to(img, times - 1, times)
 
         if is_inpaint:
             img = (img * ~inpaint_mask) + (inpaint_image * inpaint_mask)
