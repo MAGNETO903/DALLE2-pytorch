@@ -2803,10 +2803,7 @@ class Decoder(nn.Module):
 
                 lowres_noise_level = None
                 
-                if unet_number > start_at_unet_number:
-                    lowres_cond_img = self.lowres_cond_img
-                else:
-                    lowres_cond_img = None
+                
                     
                 print(unet_number, start_at_unet_number, lowres_cond_img)    
                 shape = (batch_size, channel, image_size, image_size)
@@ -2827,7 +2824,9 @@ class Decoder(nn.Module):
                 lowres_cond_img = maybe(vae.encode)(lowres_cond_img)
 
                 # denoising loop for image
-
+                if unet_number > start_at_unet_number:
+                    lowres_cond_img = self.lowres_cond_img
+               
                 img = self.p_sample_loop(
                     unet,
                     shape,
@@ -2911,7 +2910,8 @@ class Decoder(nn.Module):
         with torch.no_grad():
             image = vae.encode(image)
             lowres_cond_img = maybe(vae.encode)(lowres_cond_img)
-
+            
+        lowres_cond_img = self.lowres_cond_img
         losses = self.p_losses(unet, image, times, image_embed = image_embed, text_encodings = text_encodings, lowres_cond_img = lowres_cond_img, predict_x_start = predict_x_start, learned_variance = learned_variance, is_latent_diffusion = is_latent_diffusion, noise_scheduler = noise_scheduler, lowres_noise_level = lowres_noise_level)
 
         if not return_lowres_cond_image:
