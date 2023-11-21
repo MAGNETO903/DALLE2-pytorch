@@ -2049,7 +2049,7 @@ class Unet(nn.Module):
         x = torch.cat((x, r), dim = 1)
 
         x = self.final_resnet_block(x, t)
-        print("unet.forward() lowres_cond_img=", lowres_cond_img)
+        print("unet.forward() exists(lowres_cond_img) =", exists(lowres_cond_img))
         if exists(lowres_cond_img):
             x = torch.cat((x, lowres_cond_img), dim = 1)
 
