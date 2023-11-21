@@ -1881,7 +1881,7 @@ class Unet(nn.Module):
         # add low resolution conditioning, if present
         # try to use lowres_cond_img
         assert not (self.lowres_cond and not exists(lowres_cond_img)), 'low resolution conditioning image must be present'
-        print
+        
         if exists(lowres_cond_img):
             x = torch.cat((x, lowres_cond_img), dim = 1)
 
@@ -1899,7 +1899,7 @@ class Unet(nn.Module):
         t = self.to_time_cond(time_hiddens)
 
         # low res noise conditioning (similar to time above)
-
+        
         if exists(lowres_noise_level):
             assert exists(self.to_lowres_noise_cond), 'lowres_noise_cond must be set to True on instantiation of the unet in order to conditiong on lowres noise'
             lowres_noise_level = lowres_noise_level.type_as(x)
@@ -2049,7 +2049,7 @@ class Unet(nn.Module):
         x = torch.cat((x, r), dim = 1)
 
         x = self.final_resnet_block(x, t)
-
+        print("unet.forward() lowres_cond_img=", lowres_cond_img)
         if exists(lowres_cond_img):
             x = torch.cat((x, lowres_cond_img), dim = 1)
 
@@ -2443,7 +2443,7 @@ class Decoder(nn.Module):
 
     def p_mean_variance(self, unet, x, t, image_embed, noise_scheduler, text_encodings = None, lowres_cond_img = None, clip_denoised = True, predict_x_start = False, learned_variance = False, cond_scale = 1., model_output = None, lowres_noise_level = None):
         assert not (cond_scale != 1. and not self.can_classifier_guidance), 'the decoder was not trained with conditional dropout, and thus one cannot use classifier free guidance (cond_scale anything other than 1)'
-        print("p_mean_variance", lowres_cond_img) 
+        # print("p_mean_variance", lowres_cond_img) 
         pred = default(model_output, lambda: unet.forward_with_cond_scale(x, t, image_embed = image_embed, text_encodings = text_encodings, cond_scale = cond_scale, lowres_cond_img = lowres_cond_img, lowres_noise_level = lowres_noise_level))
 
         if learned_variance:
@@ -2478,7 +2478,7 @@ class Decoder(nn.Module):
     @torch.no_grad()
     def p_sample(self, unet, x, t, image_embed, noise_scheduler, text_encodings = None, cond_scale = 1., lowres_cond_img = None, predict_x_start = False, learned_variance = False, clip_denoised = True, lowres_noise_level = None):
         b, *_, device = *x.shape, x.device
-        print("p_sample: Using lowres_cond_img:", lowres_cond_img != None)
+        # print("p_sample: Using lowres_cond_img:", lowres_cond_img != None)
         model_mean, _, model_log_variance = self.p_mean_variance(unet, x = x, t = t, image_embed = image_embed, text_encodings = text_encodings, cond_scale = cond_scale, lowres_cond_img = lowres_cond_img, clip_denoised = clip_denoised, predict_x_start = predict_x_start, noise_scheduler = noise_scheduler, learned_variance = learned_variance, lowres_noise_level = lowres_noise_level)
         noise = torch.randn_like(x)
         # no noise when t == 0
