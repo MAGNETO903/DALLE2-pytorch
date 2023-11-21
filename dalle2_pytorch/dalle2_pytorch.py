@@ -1623,7 +1623,7 @@ class Unet(nn.Module):
         # for eventual cascading diffusion
 
         self.lowres_cond = lowres_cond
-        print("Unet lowres_cond=", lowres_cond)
+        
         # determine dimensions
 
         self.channels = channels
