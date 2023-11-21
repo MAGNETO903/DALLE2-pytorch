@@ -2514,8 +2514,9 @@ class Decoder(nn.Module):
         
         b = shape[0]
         img = torch.randn(shape, device = device)
-        print("p_sample_loop_ddpm")
+        
         is_inpaint = exists(inpaint_image)
+        print("p_sample_loop_ddpm: is_inpaint=", is_inpaint)
         resample_times = inpaint_resample_times if is_inpaint else 1
 
         if is_inpaint:
@@ -2527,7 +2528,8 @@ class Decoder(nn.Module):
 
         if not is_latent_diffusion:
             lowres_cond_img = maybe(self.normalize_img)(lowres_cond_img)
-            
+        
+        print("p_sample_loop_ddpm: is_latent_diffusion=", is_latent_diffusion)    
         
         for time in tqdm(reversed(range(0, noise_scheduler.num_timesteps)), desc = 'sampling loop time step', total = noise_scheduler.num_timesteps):
             is_last_timestep = time == 0
@@ -2670,13 +2672,13 @@ class Decoder(nn.Module):
 
     @torch.no_grad()
     def p_sample_loop(self, *args, noise_scheduler, timesteps = None, **kwargs):
-        print("denoising loop")
+        print("p_sample_loop: denoising loop")
         num_timesteps = noise_scheduler.num_timesteps
 
         timesteps = default(timesteps, num_timesteps)
         assert timesteps <= num_timesteps
         is_ddim = timesteps < num_timesteps
-
+        print("p_sample_loop: is_ddim:", is_ddim) 
         if not is_ddim:
             return self.p_sample_loop_ddpm(*args, noise_scheduler = noise_scheduler, **kwargs)
 
@@ -2813,7 +2815,7 @@ class Decoder(nn.Module):
                     
                 # print(unet_number, start_at_unet_number, lowres_cond_img)    
                 shape = (batch_size, channel, image_size, image_size)
-
+                # print("sample -", unet.lowres_cond)
                 if unet.lowres_cond:
                     lowres_cond_img = resize_image_to(img, target_image_size = image_size, clamp_range = self.input_image_range, nearest = True)
 
