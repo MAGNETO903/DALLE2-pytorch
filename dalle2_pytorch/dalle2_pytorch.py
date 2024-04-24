@@ -1072,8 +1072,7 @@ class DiffusionPrior(nn.Module):
         b, *_, device = *x.shape, x.device
         model_mean, _, model_log_variance = self.p_mean_variance(x = x, t = t, text_cond = text_cond, clip_denoised = clip_denoised, cond_scale = cond_scale)
         noise = torch.randn_like(x)
-        # no noise when t = 0
-        
+        # no noise when t == 0
         nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
         return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise
 
@@ -1504,7 +1503,6 @@ class LinearAttention(nn.Module):
         k = k.softmax(dim = -2)
 
         q = q * self.scale
-        v = v / (x * y)
 
         context = einsum('b n d, b n e -> b d e', k, v)
         out = einsum('b n d, b d e -> b n e', q, context)
@@ -1609,14 +1607,12 @@ class Unet(nn.Module):
         scale_skip_connection = False,
         pixel_shuffle_upsample = True,
         final_conv_kernel_size = 1,
-        combine_upsample_fmaps = False, 
-        
-        # whether to combine the outputs of all upsample blocks, as in unet squared paper
+        combine_upsample_fmaps = False, # whether to combine the outputs of all upsample blocks, as in unet squared paper
         **kwargs
     ):
         super().__init__()
         # save locals to take care of some hyperparameters for cascading DDPM
-        
+
         self._locals = locals()
         del self._locals['self']
         del self._locals['__class__']
@@ -1624,7 +1620,7 @@ class Unet(nn.Module):
         # for eventual cascading diffusion
 
         self.lowres_cond = lowres_cond
-        
+
         # determine dimensions
 
         self.channels = channels
@@ -1878,11 +1874,11 @@ class Unet(nn.Module):
         blur_kernel_size = None
     ):
         batch_size, device = x.shape[0], x.device
-        
+
         # add low resolution conditioning, if present
-        # try to use lowres_cond_img
+
         assert not (self.lowres_cond and not exists(lowres_cond_img)), 'low resolution conditioning image must be present'
-        
+
         if exists(lowres_cond_img):
             x = torch.cat((x, lowres_cond_img), dim = 1)
 
@@ -1900,7 +1896,7 @@ class Unet(nn.Module):
         t = self.to_time_cond(time_hiddens)
 
         # low res noise conditioning (similar to time above)
-        
+
         if exists(lowres_noise_level):
             assert exists(self.to_lowres_noise_cond), 'lowres_noise_cond must be set to True on instantiation of the unet in order to conditiong on lowres noise'
             lowres_noise_level = lowres_noise_level.type_as(x)
@@ -2050,7 +2046,7 @@ class Unet(nn.Module):
         x = torch.cat((x, r), dim = 1)
 
         x = self.final_resnet_block(x, t)
-        print("unet.forward() exists(lowres_cond_img) =", exists(lowres_cond_img))
+
         if exists(lowres_cond_img):
             x = torch.cat((x, lowres_cond_img), dim = 1)
 
@@ -2165,7 +2161,6 @@ class Decoder(nn.Module):
         loss_type = 'l2',
         beta_schedule = None,
         predict_x_start = False,
-        lowres_cond_img = None,
         predict_x_start_for_latent_diffusion = False,
         image_sizes = None,                         # for cascading ddpm, image size at each stage
         random_crop_sizes = None,                   # whether to random crop the image at that stage in the cascade (super resoluting convolutions at the end may be able to generalize on smaller crops)
@@ -2191,11 +2186,10 @@ class Decoder(nn.Module):
         ddim_sampling_eta = 1.                      # can be set to 0. for deterministic sampling afaict
     ):
         super().__init__()
-        
+
         # clip
+
         self.clip = None
-        self.lowres_cond_img = lowres_cond_img
-        print(self.lowres_cond_img)
         if exists(clip):
             assert not unconditional, 'clip must not be given if doing unconditional image training'
             assert channels == clip.image_channels, f'channels of image ({channels}) should be equal to the channels that CLIP accepts ({clip.image_channels})'
@@ -2444,9 +2438,9 @@ class Decoder(nn.Module):
 
     def p_mean_variance(self, unet, x, t, image_embed, noise_scheduler, text_encodings = None, lowres_cond_img = None, clip_denoised = True, predict_x_start = False, learned_variance = False, cond_scale = 1., model_output = None, lowres_noise_level = None):
         assert not (cond_scale != 1. and not self.can_classifier_guidance), 'the decoder was not trained with conditional dropout, and thus one cannot use classifier free guidance (cond_scale anything other than 1)'
-        # print("p_mean_variance", lowres_cond_img) 
+
         pred = default(model_output, lambda: unet.forward_with_cond_scale(x, t, image_embed = image_embed, text_encodings = text_encodings, cond_scale = cond_scale, lowres_cond_img = lowres_cond_img, lowres_noise_level = lowres_noise_level))
-        
+
         if learned_variance:
             pred, var_interp_frac_unnormalized = pred.chunk(2, dim = 1)
 
@@ -2454,7 +2448,7 @@ class Decoder(nn.Module):
             x_recon = pred
         else:
             x_recon = noise_scheduler.predict_start_from_noise(x, t = t, noise = pred)
-        # print("p_mean_variance", predict_x_start, pred) 
+
         if clip_denoised:
             x_recon = self.dynamic_threshold(x_recon)
 
@@ -2476,22 +2470,16 @@ class Decoder(nn.Module):
 
         return model_mean, posterior_variance, posterior_log_variance
 
-    @torch.no_grad()
+    #@torch.no_grad()
     def p_sample(self, unet, x, t, image_embed, noise_scheduler, text_encodings = None, cond_scale = 1., lowres_cond_img = None, predict_x_start = False, learned_variance = False, clip_denoised = True, lowres_noise_level = None):
         b, *_, device = *x.shape, x.device
-        # print("p_sample: Using lowres_cond_img:", lowres_cond_img != None)
         model_mean, _, model_log_variance = self.p_mean_variance(unet, x = x, t = t, image_embed = image_embed, text_encodings = text_encodings, cond_scale = cond_scale, lowres_cond_img = lowres_cond_img, clip_denoised = clip_denoised, predict_x_start = predict_x_start, noise_scheduler = noise_scheduler, learned_variance = learned_variance, lowres_noise_level = lowres_noise_level)
         noise = torch.randn_like(x)
-        # no noise when t > 100
-        print("p_sample: no noise when t > 100")
-        if (lowres_cond_img == None):
-            nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
-        else:
-            nonzero_mask = (1 - (t > 100).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
-        
+        # no noise when t == 0
+        nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
         return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise
 
-    @torch.no_grad()
+    #@torch.no_grad()
     def p_sample_loop_ddpm(
         self,
         unet,
@@ -2508,15 +2496,27 @@ class Decoder(nn.Module):
         lowres_noise_level = None,
         inpaint_image = None,
         inpaint_mask = None,
-        inpaint_resample_times = 5
+        inpaint_resample_times = 5,
+        src_highres_img = None # HW CODE
     ):
+        ### HW CODE START ###
+        for param in unet.parameters():
+            param.requires_grad = False
+        ### HW CODE END ###
         device = self.device
-        
+
         b = shape[0]
         img = torch.randn(shape, device = device)
+
+        ### HW CODE START ###
+        '''
+        if src_highres_img is not None:
+            img = lowres_cond_img
+            noise_scheduler.num_timesteps = 500
+        '''
+        ### HW CODE END ###
         
         is_inpaint = exists(inpaint_image)
-        print("p_sample_loop_ddpm: is_inpaint=", is_inpaint)
         resample_times = inpaint_resample_times if is_inpaint else 1
 
         if is_inpaint:
@@ -2529,11 +2529,19 @@ class Decoder(nn.Module):
         if not is_latent_diffusion:
             lowres_cond_img = maybe(self.normalize_img)(lowres_cond_img)
         
-        print("p_sample_loop_ddpm: is_latent_diffusion=", is_latent_diffusion)    
-        
+        ### HW CODE START ###
+        '''
+        if src_highres_img is not None:
+            src_highres_img = maybe(self.normalize_img)(src_highres_img)
+            lowres_cond_img.requires_grad = True
+            image_embed.requires_grad = True
+            optimizer = torch.optim.AdamW([lowres_cond_img, image_embed], lr=1.0e-4)
+        '''
+        ### HW CODE END ###
+
         for time in tqdm(reversed(range(0, noise_scheduler.num_timesteps)), desc = 'sampling loop time step', total = noise_scheduler.num_timesteps):
             is_last_timestep = time == 0
-            
+
             for r in reversed(range(0, resample_times)):
                 is_last_resample_step = r == 0
 
@@ -2543,15 +2551,18 @@ class Decoder(nn.Module):
                     # following the repaint paper
                     # https://arxiv.org/abs/2201.09865
                     noised_inpaint_image = noise_scheduler.q_sample(inpaint_image, t = times)
-                    # DENOSING ONLY AFTER 500 ITERATIONS
-                    img = (img * ~inpaint_mask)
-                    #if ((time > 500 and lowres_cond_img != None) or (lowres_cond_img == None)):
-                    #    print("time=", time, "active deeeenosing")
-                    img = img + (noised_inpaint_image * inpaint_mask)
+                    img = (img * ~inpaint_mask) + (noised_inpaint_image * inpaint_mask)
 
+                ### HW CODE START ###
+                '''
+                if src_highres_img is not None:
+                    optimizer.zero_grad()
+                '''
+                ### HW CODE END ###
+                    
                 img = self.p_sample(
                     unet,
-                    img,
+                    img.detach(), # HW CODE
                     times,
                     image_embed = image_embed,
                     text_encodings = text_encodings,
@@ -2563,11 +2574,21 @@ class Decoder(nn.Module):
                     learned_variance = learned_variance,
                     clip_denoised = clip_denoised
                 )
-                
+
+                ### HW CODE START ###
+                '''
+                if src_highres_img is not None:
+                    print(img.shape)
+                    print(src_highres_img.shape)
+                    mse_loss = torch.nn.functional.mse_loss(img, src_highres_img)
+                    print(mse_loss)
+                    mse_loss.backward()
+                    optimizer.step()
+                '''
+                ### HW CODE END ###
+
                 if is_inpaint and not (is_last_timestep or is_last_resample_step):
                     # in repaint, you renoise and resample up to 10 times every step
-                    #if ((time > 500 and lowres_cond_img != None) or (lowres_cond_img == None)):
-                        #print("time=", time, "active deeeenosing2")
                     img = noise_scheduler.q_sample_from_to(img, times - 1, times)
 
         if is_inpaint:
@@ -2598,7 +2619,7 @@ class Decoder(nn.Module):
         inpaint_resample_times = 5
     ):
         batch, device, total_timesteps, alphas, eta = shape[0], self.device, noise_scheduler.num_timesteps, noise_scheduler.alphas_cumprod_prev, self.ddim_sampling_eta
-        
+
         times = torch.linspace(0., total_timesteps, steps = timesteps + 2)[:-1]
 
         times = list(reversed(times.int().tolist()))
@@ -2670,15 +2691,14 @@ class Decoder(nn.Module):
         img = self.unnormalize_img(img)
         return img
 
-    @torch.no_grad()
+    #@torch.no_grad()
     def p_sample_loop(self, *args, noise_scheduler, timesteps = None, **kwargs):
-        print("p_sample_loop: denoising loop")
         num_timesteps = noise_scheduler.num_timesteps
 
         timesteps = default(timesteps, num_timesteps)
         assert timesteps <= num_timesteps
         is_ddim = timesteps < num_timesteps
-        print("p_sample_loop: is_ddim:", is_ddim) 
+
         if not is_ddim:
             return self.p_sample_loop_ddpm(*args, noise_scheduler = noise_scheduler, **kwargs)
 
@@ -2686,7 +2706,7 @@ class Decoder(nn.Module):
 
     def p_losses(self, unet, x_start, times, *, image_embed, noise_scheduler, lowres_cond_img = None, text_encodings = None, predict_x_start = False, noise = None, learned_variance = False, clip_denoised = False, is_latent_diffusion = False, lowres_noise_level = None):
         noise = default(noise, lambda: torch.randn_like(x_start))
-        
+
         # normalize to [-1, 1]
 
         if not is_latent_diffusion:
@@ -2696,8 +2716,7 @@ class Decoder(nn.Module):
         # get x_t
 
         x_noisy = noise_scheduler.q_sample(x_start = x_start, t = times, noise = noise)
-        
-        
+
         model_output = unet(
             x_noisy,
             times,
@@ -2757,7 +2776,7 @@ class Decoder(nn.Module):
 
         return loss + vb_loss
 
-    @torch.no_grad()
+    #@torch.no_grad()
     @eval_decorator
     def sample(
         self,
@@ -2772,7 +2791,11 @@ class Decoder(nn.Module):
         distributed = False,
         inpaint_image = None,
         inpaint_mask = None,
-        inpaint_resample_times = 5
+        inpaint_resample_times = 5,
+        ### HW CODE START ###
+        src_highres_img=None,
+        src_lowres_img=None
+        ### HW CODE END ###
     ):
         assert self.unconditional or exists(image_embed), 'image embed must be present on sampling from decoder unless if trained unconditionally'
 
@@ -2809,13 +2832,9 @@ class Decoder(nn.Module):
             with context:
                 # prepare low resolution conditioning for upsamplers
 
-                lowres_noise_level = None
-                
-                
-                    
-                # print(unet_number, start_at_unet_number, lowres_cond_img)    
+                lowres_cond_img = lowres_noise_level = None
                 shape = (batch_size, channel, image_size, image_size)
-                # print("sample -", unet.lowres_cond)
+
                 if unet.lowres_cond:
                     lowres_cond_img = resize_image_to(img, target_image_size = image_size, clamp_range = self.input_image_range, nearest = True)
 
@@ -2824,10 +2843,7 @@ class Decoder(nn.Module):
                         lowres_cond_img, _ = lowres_cond.noise_image(lowres_cond_img, lowres_noise_level)
 
                 # latent diffusion
-                if unet_number > start_at_unet_number:
-                    lowres_cond_img = self.lowres_cond_img
-                else:
-                    lowres_cond_img = None
+
                 is_latent_diffusion = isinstance(vae, VQGanVAE)
                 image_size = vae.get_encoded_fmap_size(image_size)
                 shape = (batch_size, vae.encoded_dim, image_size, image_size)
@@ -2835,28 +2851,50 @@ class Decoder(nn.Module):
                 lowres_cond_img = maybe(vae.encode)(lowres_cond_img)
 
                 # denoising loop for image
-                print("lowres_cond_img is None:", lowres_cond_img ==None) 
-                print("unet.lowres_cond:", unet.lowres_cond) 
-               
-                img = self.p_sample_loop(
-                    unet,
-                    shape,
-                    image_embed = image_embed,
-                    text_encodings = text_encodings,
-                    cond_scale = unet_cond_scale,
-                    predict_x_start = predict_x_start,
-                    learned_variance = learned_variance,
-                    clip_denoised = not is_latent_diffusion,
-                    lowres_cond_img = lowres_cond_img,
-                    lowres_noise_level = lowres_noise_level,
-                    is_latent_diffusion = is_latent_diffusion,
-                    noise_scheduler = noise_scheduler,
-                    timesteps = sample_timesteps,
-                    inpaint_image = inpaint_image,
-                    inpaint_mask = inpaint_mask,
-                    inpaint_resample_times = inpaint_resample_times
-                )
 
+                ### HW CODE START ###
+                if unet_number == 2:
+                    print('Running my code!', unet_number)
+                    lowres_cond_img = resize_image_to(src_lowres_img, target_image_size = image_size, clamp_range = self.input_image_range, nearest = True)
+                    img = self.p_sample_loop(
+                        unet,
+                        shape,
+                        image_embed = image_embed,
+                        text_encodings = text_encodings,
+                        cond_scale = unet_cond_scale,
+                        predict_x_start = predict_x_start,
+                        learned_variance = learned_variance,
+                        clip_denoised = not is_latent_diffusion,
+                        lowres_cond_img = lowres_cond_img,
+                        lowres_noise_level = lowres_noise_level,
+                        is_latent_diffusion = is_latent_diffusion,
+                        noise_scheduler = noise_scheduler,
+                        timesteps = sample_timesteps,
+                        inpaint_image = inpaint_image,
+                        inpaint_mask = inpaint_mask,
+                        inpaint_resample_times = inpaint_resample_times,
+                        src_highres_img=src_highres_img
+                    )
+                else:
+                    img = self.p_sample_loop(
+                        unet,
+                        shape,
+                        image_embed = image_embed,
+                        text_encodings = text_encodings,
+                        cond_scale = unet_cond_scale,
+                        predict_x_start = predict_x_start,
+                        learned_variance = learned_variance,
+                        clip_denoised = not is_latent_diffusion,
+                        lowres_cond_img = lowres_cond_img,
+                        lowres_noise_level = lowres_noise_level,
+                        is_latent_diffusion = is_latent_diffusion,
+                        noise_scheduler = noise_scheduler,
+                        timesteps = sample_timesteps,
+                        inpaint_image = inpaint_image,
+                        inpaint_mask = inpaint_mask,
+                        inpaint_resample_times = inpaint_resample_times
+                    )
+                ### HW CODE END ###
                 img = vae.decode(img)
 
             if exists(stop_at_unet_number) and stop_at_unet_number == unet_number:
@@ -2906,7 +2944,7 @@ class Decoder(nn.Module):
 
         lowres_cond_img, lowres_noise_level = lowres_conditioner(image, target_image_size = target_image_size, downsample_image_size = self.image_sizes[unet_index - 1]) if exists(lowres_conditioner) else (None, None)
         image = resize_image_to(image, target_image_size, nearest = True)
-        print("lowres_cond_img=", lowres_cond_img)
+
         if exists(random_crop_size):
             aug = K.RandomCrop((random_crop_size, random_crop_size), p = 1.)
 
@@ -2921,8 +2959,7 @@ class Decoder(nn.Module):
         with torch.no_grad():
             image = vae.encode(image)
             lowres_cond_img = maybe(vae.encode)(lowres_cond_img)
-            
-        lowres_cond_img = self.lowres_cond_img
+
         losses = self.p_losses(unet, image, times, image_embed = image_embed, text_encodings = text_encodings, lowres_cond_img = lowres_cond_img, predict_x_start = predict_x_start, learned_variance = learned_variance, is_latent_diffusion = is_latent_diffusion, noise_scheduler = noise_scheduler, lowres_noise_level = lowres_noise_level)
 
         if not return_lowres_cond_image:
@@ -2970,7 +3007,7 @@ class DALLE2(nn.Module):
         image_embed = self.prior.sample(text, num_samples_per_batch = self.prior_num_samples, cond_scale = prior_cond_scale)
 
         text_cond = text if self.decoder_need_text_cond else None
-        images = self.decoder.sample(image_embed = image_embed, text = text_cond, cond_scale = cond_scale)
+        images = self.decoder.sample(image_embed, text = text_cond, cond_scale = cond_scale)
 
         if return_pil_images:
             images = list(map(self.to_pil, images.unbind(dim = 0)))
